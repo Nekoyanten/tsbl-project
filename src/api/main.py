@@ -3,7 +3,6 @@ TSBL — API Principal (FastAPI + WebSocket)
 Sprint 0: Servidor base con heartbeat y manejo de sesiones
 """
 
-import asyncio
 import json
 import uuid
 from datetime import datetime
