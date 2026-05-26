@@ -16,7 +16,7 @@ import numpy as np
 app = FastAPI(
     title="TSBL API",
     description="Trust & Security Behavioral Lab — Backend de captura y análisis",
-    version="0.1.0-sprint0"
+    version="0.1.0-sprint0",
 )
 
 # CORS para desarrollo (frontend en localhost:8080)
@@ -30,14 +30,17 @@ app.add_middleware(
 
 # ==================== MODELOS DE DATOS ====================
 
+
 class SessionStart(BaseModel):
     user_id: str
     metadata: Optional[Dict] = {}
+
 
 class SessionResponse(BaseModel):
     session_id: str
     status: str
     created_at: str
+
 
 class StreamPayload(BaseModel):
     seq: int
@@ -46,11 +49,13 @@ class StreamPayload(BaseModel):
     dom_events: Optional[list] = []
     fsp_level: int = 0
 
+
 # ==================== ESTADO GLOBAL (en memoria para Sprint 0) ====================
 
 sessions: Dict[str, dict] = {}
 
 # ==================== ENDPOINTS REST ====================
+
 
 @app.get("/")
 async def root():
@@ -58,16 +63,18 @@ async def root():
         "service": "TSBL API",
         "version": "0.1.0-sprint0",
         "status": "running",
-        "sprint": "Sprint 0 — Cimientos"
+        "sprint": "Sprint 0 — Cimientos",
     }
+
 
 @app.get("/health")
 async def health_check():
     return {
         "status": "healthy",
         "timestamp": datetime.utcnow().isoformat(),
-        "active_sessions": len(sessions)
+        "active_sessions": len(sessions),
     }
+
 
 @app.post("/session/start", response_model=SessionResponse)
 async def start_session(data: SessionStart):
@@ -86,14 +93,16 @@ async def start_session(data: SessionStart):
     return SessionResponse(
         session_id=session_id,
         status="created",
-        created_at=sessions[session_id]["created_at"]
+        created_at=sessions[session_id]["created_at"],
     )
+
 
 @app.get("/session/{session_id}/status")
 async def session_status(session_id: str):
     if session_id not in sessions:
         raise HTTPException(status_code=404, detail="Sesión no encontrada")
     return sessions[session_id]
+
 
 @app.post("/session/{session_id}/stream")
 async def receive_stream(session_id: str, payload: StreamPayload):
@@ -110,10 +119,12 @@ async def receive_stream(session_id: str, payload: StreamPayload):
         "seq": payload.seq,
         "ts_server": datetime.utcnow().timestamp(),
         "received": True,
-        "processing": "stored"  # En Sprint 2 se cambiará a "embedding_computed"
+        "processing": "stored",  # En Sprint 2 se cambiará a "embedding_computed"
     }
 
+
 # ==================== WEBSOCKET ====================
+
 
 @app.websocket("/v1/stream/{session_id}")
 async def websocket_stream(websocket: WebSocket, session_id: str):
@@ -142,9 +153,9 @@ async def websocket_stream(websocket: WebSocket, session_id: str):
                 "ts_server": datetime.utcnow().timestamp(),
                 "session_active": True,
                 "baseline_ready": False,  # Sprint 3
-                "vc_detected": False,     # Sprint 3
-                "fsp_trigger": 0,         # Sprint 3
-                "message": "Sprint 0: Datos recibidos correctamente"
+                "vc_detected": False,  # Sprint 3
+                "fsp_trigger": 0,  # Sprint 3
+                "message": "Sprint 0: Datos recibidos correctamente",
             }
 
             await websocket.send_json(response)
@@ -156,7 +167,9 @@ async def websocket_stream(websocket: WebSocket, session_id: str):
         print(f"❌ Error en WebSocket {session_id}: {e}")
         await websocket.close(code=1011, reason="Internal error")
 
+
 # ==================== SMOKE TEST ====================
+
 
 @app.get("/smoke-test")
 async def smoke_test():
@@ -166,9 +179,10 @@ async def smoke_test():
         "websocket_handler": True,
         "session_manager": True,
         "numpy": np.__version__,
-        "timestamp": datetime.utcnow().isoformat()
+        "timestamp": datetime.utcnow().isoformat(),
     }
     return {"status": "✅ OK", "checks": checks}
+
 
 # ==================== MAIN ====================
 
@@ -181,10 +195,4 @@ if __name__ == "__main__":
         print("✅ Smoke test pasado: servidor puede iniciar")
         sys.exit(0)
 
-    uvicorn.run(
-        "main:app",
-        host="0.0.0.0",
-        port=8000,
-        reload=True,
-        log_level="info"
-    )
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True, log_level="info")
