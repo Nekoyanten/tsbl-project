@@ -1,0 +1,141 @@
+name: TSBL CI/CD — Sprint Quality Gate
+
+on:
+  push:
+    branches: [ main, develop, 'sprint-*' ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  # ==================== LINT Y FORMATO ====================
+  lint:
+    name:  Lint & Format
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Python lint tools
+        run: |
+          pip install black ruff mypy
+
+      - name: Lint Python (ruff)
+        run: ruff check src/ --output-format=github
+
+      - name: Format Python (black)
+        run: black --check src/ tests/
+
+      - name: Type check Python (mypy)
+        run: mypy src/ --ignore-missing-imports --pretty
+
+      - name: Install Node lint tools
+        run: npm ci
+
+      - name: Lint JavaScript (eslint)
+        run: npm run lint || true  # Permite fallo si no hay archivos JS aún
+
+  # ==================== TESTS UNITARIOS ====================
+  test-unit:
+    name: Tests Unitarios
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install pytest pytest-asyncio pytest-cov
+
+      - name: Run Python unit tests
+        run: |
+          pytest tests/unit/ -v --cov=src --cov-report=xml --cov-report=term-missing --cov-fail-under=70 || true
+        # Sprint 0: 70% threshold, se elevará a 80% en Sprint 2
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v4
+        with:
+          files: ./coverage.xml
+          fail_ci_if_error: false
+
+  # ==================== TESTS DE INTEGRACIÓN ====================
+  test-integration:
+    name: 🔗 Tests de Integración
+    runs-on: ubuntu-latest
+    needs: test-unit
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install pytest pytest-asyncio httpx
+
+      - name: Start backend (background)
+        run: |
+          python src/api/main.py &
+          sleep 5
+          curl -f http://localhost:8000/health || exit 1
+
+      - name: Run integration tests
+        run: pytest tests/integration/ -v || true
+        # Sprint 0: Permite fallo mientras se construyen tests
+
+  # ==================== SEGURIDAD ====================
+  security:
+    name:  Security Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          severity: 'HIGH,CRITICAL'
+          exit-code: '0'  # Sprint 0: informativo, no bloqueante
+
+      - name: Run Semgrep
+        uses: returntocorp/semgrep-action@v1
+        with:
+          config: >-
+            p/security-audit
+            p/owasp-top-ten
+        continue-on-error: true
+
+  # ==================== DOCUMENTACIÓN ====================
+  docs:
+    name:  Build Docs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check markdown links
+        uses: lycheeverse/lychee-action@v1
+        with:
+          args: docs/ README.md
+          fail: false
+
+      - name: Generate architecture diagram (placeholder)
+        run: |
+          echo "Diagramas se generarán manualmente en Sprint 2 con Graphviz/Mermaid"

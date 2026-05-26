@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TSBL — Demo Sprint 0 | Trust & Security Behavioral Lab</title>
+    <style>
+        :root {
+            --primary: #2563eb;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --dark: #1f2937;
+            --light: #f3f4f6;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background: var(--light);
+            color: var(--dark);
+            line-height: 1.6;
+        }
+        .header {
+            background: var(--dark);
+            color: white;
+            padding: 1.5rem;
+            text-align: center;
+        }
+        .header h1 { font-size: 1.8rem; margin-bottom: 0.5rem; }
+        .header .badge {
+            display: inline-block;
+            background: var(--primary);
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.875rem;
+            font-weight: 600;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+            margin-top: 2rem;
+        }
+        @media (max-width: 768px) {
+            .grid { grid-template-columns: 1fr; }
+        }
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .card h2 {
+            font-size: 1.25rem;
+            margin-bottom: 1rem;
+            color: var(--dark);
+        }
+        .status-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 0.875rem;
+        }
+        .status-online { background: #d1fae5; color: #065f46; }
+        .status-offline { background: #fee2e2; color: #991b1b; }
+        .status-waiting { background: #fef3c7; color: #92400e; }
+
+        #webcam-container {
+            position: relative;
+            width: 100%;
+            aspect-ratio: 4/3;
+            background: #000;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        #webcam-video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        #webcam-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+        .controls {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1rem;
+            flex-wrap: wrap;
+        }
+        button {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 0.875rem;
+        }
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+        }
+        .btn-primary:hover:not(:disabled) { background: #1d4ed8; }
+        .btn-success {
+            background: var(--success);
+            color: white;
+        }
+        .btn-success:hover:not(:disabled) { background: #059669; }
+        .btn-danger {
+            background: var(--danger);
+            color: white;
+        }
+        .btn-danger:hover:not(:disabled) { background: #dc2626; }
+
+        .metrics {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+        .metric {
+            background: var(--light);
+            padding: 1rem;
+            border-radius: 8px;
+            text-align: center;
+        }
+        .metric-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--primary);
+        }
+        .metric-label {
+            font-size: 0.75rem;
+            color: #6b7280;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .log-panel {
+            background: #111827;
+            color: #e5e7eb;
+            padding: 1rem;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.75rem;
+            max-height: 200px;
+            overflow-y: auto;
+            margin-top: 1rem;
+        }
+        .log-entry {
+            margin-bottom: 0.25rem;
+        }
+        .log-time { color: #9ca3af; }
+        .log-info { color: #60a5fa; }
+        .log-success { color: #34d399; }
+        .log-error { color: #f87171; }
+
+        .footer {
+            text-align: center;
+            padding: 2rem;
+            color: #6b7280;
+            font-size: 0.875rem;
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <h1>🔐 TSBL — Trust & Security Behavioral Lab</h1>
+        <span class="badge">🚀 Sprint 0: Cimientos</span>
+        <p style="margin-top: 0.5rem; opacity: 0.9;">Demo de captura multimodal y WebSocket</p>
+    </header>
+
+    <div class="container">
+        <!-- Panel de Estado -->
+        <div class="card" style="margin-bottom: 2rem;">
+            <h2>📡 Estado del Sistema</h2>
+            <div style="display: flex; gap: 1rem; flex-wrap: wrap; align-items: center;">
+                <span id="ws-status" class="status-indicator status-offline">
+                    🔴 WebSocket: Desconectado
+                </span>
+                <span id="camera-status" class="status-indicator status-offline">
+                    🔴 Cámara: Apagada
+                </span>
+                <span id="session-status" class="status-indicator status-waiting">
+                    ⏳ Sesión: Sin iniciar
+                </span>
+            </div>
+            <div class="controls">
+                <button id="btn-start" class="btn-primary" onclick="startSession()">
+                    ▶️ Iniciar Sesión
+                </button>
+                <button id="btn-camera" class="btn-success" onclick="toggleCamera()" disabled>
+                    📷 Activar Cámara
+                </button>
+                <button id="btn-stop" class="btn-danger" onclick="stopSession()" disabled>
+                    ⏹️ Detener
+                </button>
+            </div>
+        </div>
+
+        <div class="grid">
+            <!-- Panel de Webcam -->
+            <div class="card">
+                <h2>🎥 Captura Facial (MediaPipe)</h2>
+                <div id="webcam-container">
+                    <video id="webcam-video" autoplay playsinline muted></video>
+                    <canvas id="webcam-canvas"></canvas>
+                </div>
+                <p style="margin-top: 1rem; font-size: 0.875rem; color: #6b7280;">
+                    MediaPipe Face Mesh detectará 468 landmarks faciales localmente en tu navegador. 
+                    <strong>Ninguna imagen se transmite al servidor.</strong>
+                </p>
+            </div>
+
+            <!-- Panel de Métricas y DOM -->
+            <div class="card">
+                <h2>📊 Métricas en Tiempo Real</h2>
+                <div class="metrics">
+                    <div class="metric">
+                        <div class="metric-value" id="metric-frames">0</div>
+                        <div class="metric-label">Frames enviados</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value" id="metric-events">0</div>
+                        <div class="metric-label">Eventos DOM</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value" id="metric-fps">0</div>
+                        <div class="metric-label">FPS efectivo</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value" id="metric-latency">—</div>
+                        <div class="metric-label">Latencia (ms)</div>
+                    </div>
+                </div>
+
+                <h3 style="margin-top: 1.5rem; font-size: 1rem;">🖱️ Telemetría DOM</h3>
+                <div class="log-panel" id="dom-log">
+                    <div class="log-entry">
+                        <span class="log-time">[--:--:--]</span> 
+                        <span class="log-info">Esperando inicio de sesión...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Panel de Logs del Servidor -->
+        <div class="card" style="margin-top: 2rem;">
+            <h2>📝 Log de Comunicación WebSocket</h2>
+            <div class="log-panel" id="ws-log">
+                <div class="log-entry">
+                    <span class="log-time">[--:--:--]</span> 
+                    <span class="log-info">Conecte con el servidor para ver mensajes</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer class="footer">
+        <p><strong>TSBL — Proyecto de Grado 2026</strong></p>
+        <p>Camilo Yanten Santacruz & Nicolle Tatiana Quijano Jacome</p>
+        <p style="margin-top: 0.5rem; font-size: 0.75rem;">
+            Sprint 0: Cimientos | Estado: <span style="color: var(--warning);">En desarrollo activo</span>
+        </p>
+    </footer>
+
+    <script>
+        // ==================== CONFIGURACIÓN ====================
+        const WS_URL = 'ws://localhost:8000/v1/stream/';
+        const API_URL = 'http://localhost:8000';
+
+        // ==================== ESTADO GLOBAL ====================
+        let sessionId = null;
+        let ws = null;
+        let videoStream = null;
+        let isStreaming = false;
+        let frameCount = 0;
+        let eventCount = 0;
+        let lastFrameTime = 0;
+        let fps = 0;
+
+        // ==================== UTILIDADES ====================
+        function now() {
+            return new Date().toLocaleTimeString('es-CO', { hour12: false });
+        }
+
+        function log(panelId, message, type = 'info') {
+            const panel = document.getElementById(panelId);
+            const entry = document.createElement('div');
+            entry.className = 'log-entry';
+            entry.innerHTML = `<span class="log-time">[${now()}]</span> <span class="log-${type}">${message}</span>`;
+            panel.appendChild(entry);
+            panel.scrollTop = panel.scrollHeight;
+        }
+
+        function updateStatus(id, text, type) {
+            const el = document.getElementById(id);
+            el.className = `status-indicator status-${type}`;
+            el.innerHTML = text;
+        }
+
+        function updateMetrics() {
+            document.getElementById('metric-frames').textContent = frameCount;
+            document.getElementById('metric-events').textContent = eventCount;
+            document.getElementById('metric-fps').textContent = fps.toFixed(1);
+        }
+
+        // ==================== SESIÓN ====================
+        async function startSession() {
+            try {
+                log('ws-log', 'Iniciando sesión vía REST API...', 'info');
+
+                const response = await fetch(`${API_URL}/session/start`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        user_id: 'demo_user_' + Math.random().toString(36).substr(2, 8),
+                        metadata: { source: 'sprint0-demo', browser: navigator.userAgent }
+                    })
+                });
+
+                const data = await response.json();
+                sessionId = data.session_id;
+
+                log('ws-log', `✅ Sesión creada: ${sessionId.substr(0, 8)}...`, 'success');
+                updateStatus('session-status', '🟢 Sesión: Activa (' + sessionId.substr(0, 8) + '...)', 'online');
+
+                document.getElementById('btn-start').disabled = true;
+                document.getElementById('btn-camera').disabled = false;
+                document.getElementById('btn-stop').disabled = false;
+
+                connectWebSocket();
+
+            } catch (err) {
+                log('ws-log', `❌ Error al iniciar sesión: ${err.message}`, 'error');
+                updateStatus('session-status', '🔴 Error al iniciar', 'offline');
+            }
+        }
+
+        function stopSession() {
+            isStreaming = false;
+
+            if (ws) {
+                ws.close();
+                ws = null;
+            }
+
+            if (videoStream) {
+                videoStream.getTracks().forEach(t => t.stop());
+                videoStream = null;
+            }
+
+            frameCount = 0;
+            eventCount = 0;
+            fps = 0;
+            updateMetrics();
+
+            updateStatus('ws-status', '🔴 WebSocket: Desconectado', 'offline');
+            updateStatus('camera-status', '🔴 Cámara: Apagada', 'offline');
+            updateStatus('session-status', '⏳ Sesión: Sin iniciar', 'waiting');
+
+            document.getElementById('btn-start').disabled = false;
+            document.getElementById('btn-camera').disabled = true;
+            document.getElementById('btn-stop').disabled = true;
+
+            log('ws-log', 'Sesión finalizada', 'info');
+        }
+
+        // ==================== WEBSOCKET ====================
+        function connectWebSocket() {
+            if (!sessionId) return;
+
+            ws = new WebSocket(WS_URL + sessionId);
+
+            ws.onopen = () => {
+                log('ws-log', '🟢 WebSocket conectado', 'success');
+                updateStatus('ws-status', '🟢 WebSocket: Conectado', 'online');
+                isStreaming = true;
+                startStreamingLoop();
+            };
+
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+
+                // Calcular latencia
+                const latency = ((performance.now() / 1000) - data.ts_server) * 1000;
+                document.getElementById('metric-latency').textContent = latency.toFixed(1);
+
+                // Log cada 30 mensajes para no saturar
+                if (data.seq % 30 === 0) {
+                    log('ws-log', `📥 Recibido eco #${data.seq} (latencia: ${latency.toFixed(1)}ms)`, 'info');
+                }
+            };
+
+            ws.onerror = (err) => {
+                log('ws-log', `❌ Error WebSocket: ${err.message || 'Desconocido'}`, 'error');
+                updateStatus('ws-status', '🔴 WebSocket: Error', 'offline');
+            };
+
+            ws.onclose = () => {
+                log('ws-log', '🔌 WebSocket cerrado', 'info');
+                updateStatus('ws-status', '🔴 WebSocket: Desconectado', 'offline');
+            };
+        }
+
+        // ==================== CÁMARA (Sprint 0: Solo video, sin MediaPipe aún) ====================
+        async function toggleCamera() {
+            try {
+                log('ws-log', 'Solicitando acceso a cámara...', 'info');
+
+                videoStream = await navigator.mediaDevices.getUserMedia({
+                    video: { width: 640, height: 480, frameRate: 30 },
+                    audio: false
+                });
+
+                const video = document.getElementById('webcam-video');
+                video.srcObject = videoStream;
+
+                updateStatus('camera-status', '🟢 Cámara: Activa (30 fps)', 'online');
+                log('ws-log', '✅ Cámara activada', 'success');
+
+                // Dibujar contorno simple en canvas (placeholder para landmarks Sprint 1)
+                drawPlaceholderLandmarks();
+
+            } catch (err) {
+                log('ws-log', `❌ Error de cámara: ${err.message}`, 'error');
+                updateStatus('camera-status', '🔴 Cámara: Denegada', 'offline');
+            }
+        }
+
+        function drawPlaceholderLandmarks() {
+            const canvas = document.getElementById('webcam-canvas');
+            const ctx = canvas.getContext('2d');
+            canvas.width = 640;
+            canvas.height = 480;
+
+            function draw() {
+                if (!isStreaming) return;
+
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.strokeStyle = '#10b981';
+                ctx.lineWidth = 2;
+
+                // Dibujar rectángulo de rostro genérico (placeholder)
+                const cx = canvas.width / 2;
+                const cy = canvas.height / 2;
+                const w = 200;
+                const h = 260;
+
+                ctx.strokeRect(cx - w/2, cy - h/2, w, h);
+
+                // Puntos de referencia simulados
+                ctx.fillStyle = '#3b82f6';
+                const points = [
+                    [cx, cy - h/3],      // frente
+                    [cx - w/4, cy],      // ojo izq
+                    [cx + w/4, cy],      // ojo der
+                    [cx, cy + h/6],      // nariz
+                    [cx, cy + h/3],      // boca
+                ];
+                points.forEach(([x, y]) => {
+                    ctx.beginPath();
+                    ctx.arc(x, y, 4, 0, 2 * Math.PI);
+                    ctx.fill();
+                });
+
+                // Etiqueta informativa
+                ctx.fillStyle = 'rgba(0,0,0,0.7)';
+                ctx.fillRect(10, 10, 280, 30);
+                ctx.fillStyle = '#fff';
+                ctx.font = '14px monospace';
+                ctx.fillText('Sprint 0: Placeholder landmarks', 20, 30);
+                ctx.fillText('Sprint 1: MediaPipe Face Mesh real', 20, 48);
+
+                requestAnimationFrame(draw);
+            }
+            draw();
+        }
+
+        // ==================== STREAMING LOOP ====================
+        function startStreamingLoop() {
+            let seq = 0;
+
+            async function sendFrame() {
+                if (!isStreaming || !ws || ws.readyState !== WebSocket.OPEN) return;
+
+                const tsClient = performance.now() / 1000;
+
+                // Sprint 0: Enviar datos simulados (en Sprint 1 serán landmarks reales)
+                const payload = {
+                    seq: seq++,
+                    ts_client: tsClient,
+                    landmarks: null,  // Sprint 1: array de 468×3
+                    dom_events: generateMockDOMEvents(),
+                    fsp_level: 0
+                };
+
+                ws.send(JSON.stringify(payload));
+                frameCount++;
+
+                // Calcular FPS
+                const now = performance.now();
+                if (lastFrameTime > 0) {
+                    fps = 1000 / (now - lastFrameTime);
+                }
+                lastFrameTime = now;
+
+                updateMetrics();
+
+                setTimeout(sendFrame, 1000);  // 1 Hz para Sprint 0 (en producción: 30 Hz)
+            }
+
+            sendFrame();
+        }
+
+        function generateMockDOMEvents() {
+            // Simular eventos DOM aleatorios para demo
+            const types = ['mousemove', 'scroll', 'hover'];
+            const events = [];
+
+            for (let i = 0; i < Math.floor(Math.random() * 3); i++) {
+                events.push({
+                    type: types[Math.floor(Math.random() * types.length)],
+                    timestamp: performance.now(),
+                    target: { tagName: 'BUTTON', isRiskElement: Math.random() > 0.7 }
+                });
+                eventCount++;
+            }
+
+            // Log ocasional de eventos DOM
+            if (events.length > 0 && Math.random() > 0.7) {
+                const ev = events[0];
+                const risk = ev.target.isRiskElement ? '⚠️ RIESGO' : '✅ normal';
+                log('dom-log', `${ev.type.toUpperCase()} en ${ev.target.tagName} ${risk}`, 
+                    ev.target.isRiskElement ? 'error' : 'info');
+            }
+
+            return events;
+        }
+
+        // ==================== INICIALIZACIÓN ====================
+        window.addEventListener('DOMContentLoaded', () => {
+            log('ws-log', 'TSBL Demo cargado. Presione "Iniciar Sesión" para comenzar.', 'info');
+
+            // Verificar conectividad con servidor
+            fetch(`${API_URL}/health`)
+                .then(r => r.json())
+                .then(data => {
+                    log('ws-log', `✅ Servidor backend activo (${data.active_sessions} sesiones activas)`, 'success');
+                })
+                .catch(err => {
+                    log('ws-log', `⚠️ Servidor backend no responde: ${err.message}. ¿Está ejecutado 'python src/api/main.py'?`, 'error');
+                });
+        });
+
+        // Cleanup al cerrar página
+        window.addEventListener('beforeunload', () => {
+            if (ws) ws.close();
+            if (videoStream) videoStream.getTracks().forEach(t => t.stop());
+        });
+    </script>
+</body>
+</html>
